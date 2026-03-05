@@ -18,7 +18,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
-  const BACKEND_URL = "https://pipeline-ai-production.up.railway.app";
+  const BACKEND_URL = "";
 
   const handleGenerate = async () => {
     if (!csvData.trim()) return;
@@ -28,7 +28,7 @@ export default function App() {
     setExplanation("");
     setIssues([]);
     try {
-      const response = await fetch(`${BACKEND_URL}/generate-pipeline`, {
+      const response = await fetch(`/api/generate-pipeline`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csv_data: csvData }),
