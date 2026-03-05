@@ -18,7 +18,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://pipeline-ai-production.up.railway.app";
+  const BACKEND_URL = "https://pipeline-ai-production.up.railway.app";
 
   const handleGenerate = async () => {
     if (!csvData.trim()) return;
