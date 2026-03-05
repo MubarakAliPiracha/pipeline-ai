@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import anthropic
 import os
@@ -13,8 +14,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 class PipelineRequest(BaseModel):
@@ -25,7 +27,7 @@ def health():
     return {"status": "ok"}
 
 @app.post("/generate-pipeline")
-def generate_pipeline(request: PipelineRequest):
+async def generate_pipeline(request: PipelineRequest):
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set")
@@ -37,25 +39,16 @@ def generate_pipeline(request: PipelineRequest):
 CSV DATA:
 {request.csv_data}
 
-Analyze the data carefully and identify ALL issues such as:
-- Missing/null values
-- Duplicate rows
-- Inconsistent capitalization
-- Wrong data types (e.g. text in numeric columns)
-- Inconsistent date formats
-- Out of range values (e.g. completion over 100%)
-- Empty column names
-
 Respond in EXACTLY this format:
 
 ISSUES:
 - [list each issue found, one per line starting with -]
 
 SCRIPT:
-[complete standalone Python script using pandas that fixes all issues, loads from input.csv, saves to output.csv, prints a summary of what was fixed]
+[complete standalone Python script using pandas that fixes all issues, loads from input.csv, saves to output.csv, prints summary]
 
 EXPLANATION:
-[2-3 plain English sentences explaining what the script does and fixes]"""
+[2-3 plain English sentences explaining what the script does]"""
 
     message = client.messages.create(
         model="claude-3-5-sonnet-20241022",
@@ -64,7 +57,6 @@ EXPLANATION:
     )
 
     response_text = message.content[0].text
-
     script = ""
     explanation = ""
     issues = []
@@ -84,4 +76,11 @@ EXPLANATION:
         explanation = "Script generated."
         issues = []
 
-    return {"script": script, "explanation": explanation, "issues": issues}
+    return JSONResponse(
+        content={"script": script, "explanation": explanation, "issues": issues},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
