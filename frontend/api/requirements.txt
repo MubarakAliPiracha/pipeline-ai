@@ -1,1 +1,1 @@
-anthropic==0.49.0
+# No external dependencies needed - using stdlib urllib

@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import os
+import urllib.request
 import traceback
 
 class handler(BaseHTTPRequestHandler):
@@ -14,19 +15,14 @@ class handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            import anthropic
-
             length = int(self.headers.get("Content-Length", 0))
-            raw = self.rfile.read(length)
-            body = json.loads(raw)
+            body = json.loads(self.rfile.read(length))
             csv_data = body.get("csv_data", "")
 
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
             if not api_key:
                 self._respond(500, {"error": "ANTHROPIC_API_KEY not set"})
                 return
-
-            client = anthropic.Anthropic(api_key=api_key)
 
             prompt = f"""You are an expert data engineer. Analyze this messy CSV data.
 
@@ -44,13 +40,27 @@ SCRIPT:
 EXPLANATION:
 [2-3 sentences explaining what it fixes]"""
 
-            message = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}]
+            payload = json.dumps({
+                "model": "claude-3-5-sonnet-20241022",
+                "max_tokens": 2000,
+                "messages": [{"role": "user", "content": prompt}]
+            }).encode()
+
+            req = urllib.request.Request(
+                "https://api.anthropic.com/v1/messages",
+                data=payload,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json"
+                },
+                method="POST"
             )
 
-            response_text = message.content[0].text
+            with urllib.request.urlopen(req, timeout=55) as res:
+                result = json.loads(res.read())
+
+            response_text = result["content"][0]["text"]
             script, explanation, issues = "", "", []
 
             if "ISSUES:" in response_text and "SCRIPT:" in response_text and "EXPLANATION:" in response_text:
