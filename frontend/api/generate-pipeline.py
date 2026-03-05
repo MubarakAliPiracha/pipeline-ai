@@ -74,6 +74,9 @@ EXPLANATION:
 
             self._respond(200, {"script": script, "explanation": explanation, "issues": issues})
 
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="replace")
+            self._respond(500, {"error": f"HTTP {e.code} from Anthropic", "body": error_body})
         except Exception as e:
             self._respond(500, {"error": str(e), "trace": traceback.format_exc()})
 
