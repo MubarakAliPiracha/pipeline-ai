@@ -41,7 +41,7 @@ EXPLANATION:
 [2-3 sentences explaining what it fixes]"""
 
             payload = json.dumps({
-                "model": "claude-3-5-sonnet-20241022",
+                "model": "claude-3-haiku-20240307",
                 "max_tokens": 2000,
                 "messages": [{"role": "user", "content": prompt}]
             }).encode()
