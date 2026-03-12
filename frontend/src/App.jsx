@@ -10,15 +10,15 @@ const EXAMPLE_CSV = `project_id,project_name,budget,spent,start_date,completion_
 7,,600000,0,2024-04-01,0,Diana Prince,planned`;
 
 export default function App() {
-  const [csvData, setCsvData] = useState("");
-  const [script, setScript] = useState("");
+  const [csvData,     setCsvData]     = useState("");
+  const [script,      setScript]      = useState("");
   const [explanation, setExplanation] = useState("");
-  const [issues, setIssues] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("script");
-  const [copied, setCopied] = useState(false);
-  const [bootDone, setBootDone] = useState(false);
+  const [issues,      setIssues]      = useState([]);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState("");
+  const [activeTab,   setActiveTab]   = useState("script");
+  const [copied,      setCopied]      = useState(false);
+  const [bootDone,    setBootDone]    = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setBootDone(true), 3500);
@@ -56,8 +56,9 @@ export default function App() {
     a.download = "pipeline.py"; a.click();
   };
 
-  const statusColor = loading ? "#2563eb" : script ? "#10b981" : "#334155";
+  const statusColor = loading ? "#3b82f6" : script ? "#34d399" : "#374151";
   const statusLabel = loading ? "Processing" : script ? "Ready" : "Standby";
+  const canGenerate = !loading && !!csvData.trim();
 
   const TABS = [
     { id: "script",      label: "Script" },
@@ -65,92 +66,95 @@ export default function App() {
     { id: "explanation", label: "Explanation" },
   ];
 
-  const STATS = [
-    { label: "Input Rows",    value: rowCount || "—",  lit: rowCount > 0 },
-    { label: "Columns",       value: colCount || "—",  lit: colCount > 0 },
-    { label: "Issues Found",  value: issues.length > 0 ? issues.length : "—", amber: issues.length > 0 },
-    { label: "Pipeline State", value: statusLabel, custom: statusColor },
-  ];
-
-  const NAV = [
-    { label: "Generator",     active: true },
-    { label: "History",       active: false },
-    { label: "Schema Detect", active: false },
-    { label: "Data Preview",  active: false },
-    { label: "Type Validator",active: false },
-  ];
+  // Stat value colors
+  const statColor = (type, hasData) => {
+    if (type === "rows" || type === "cols") return hasData ? "#3b82f6" : "#1f2937";
+    if (type === "issues") return hasData ? "#f59e0b" : "#1f2937";
+    if (type === "state") return statusColor;
+    return "#1f2937";
+  };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Mono:wght@400;700&display=swap');
 
-        @keyframes fadeInLine {
-          from { opacity: 0; transform: translateX(-6px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes bootFadeOut {
-          from { opacity: 1; }
-          to   { opacity: 0; }
-        }
-        @keyframes appFadeIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         html, body {
           height: 100%;
-          font-family: 'DM Sans', sans-serif;
+          background: #0a0a0f;
+          color: #f1f5f9;
+          font-family: 'Inter', -apple-system, sans-serif;
           -webkit-font-smoothing: antialiased;
           overflow-x: hidden;
         }
-        button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
-        textarea { font-family: 'DM Mono', monospace !important; }
-
-        /* Boot lines */
-        .boot-line { opacity: 0; animation: fadeInLine 0.4s ease both; }
-        .boot-line-1 { animation-delay: 0s; }
-        .boot-line-2 { animation-delay: 0.8s; }
-        .boot-line-3 { animation-delay: 1.6s; }
-        .boot-line-4 { animation-delay: 2.4s; }
-
-        /* Nav items */
-        .nav-item { transition: background 0.12s, color 0.12s; }
-        .nav-item:hover { background: #131929 !important; color: #cbd5e1 !important; }
-
-        /* Tab buttons */
-        .tab-btn { transition: color 0.12s, border-color 0.12s; }
-        .tab-btn:hover { color: #cbd5e1 !important; }
-
-        /* Panel hover */
-        .panel { transition: border-color 0.12s; }
-        .panel:focus-within { border-color: #334155 !important; }
-
-        /* Stat card */
-        .stat-card { transition: border-color 0.12s; }
-        .stat-card:hover { border-color: #334155 !important; }
-
-        /* Ghost button */
-        .btn-ghost { transition: background 0.12s, color 0.12s, border-color 0.12s; }
-        .btn-ghost:hover { background: #1e293b !important; color: #cbd5e1 !important; border-color: #334155 !important; }
-
-        /* Primary button */
-        .btn-primary { transition: background 0.12s; }
-        .btn-primary:not(:disabled):hover { background: #1d4ed8 !important; }
-
-        /* Action button */
-        .btn-action { transition: background 0.12s, color 0.12s, border-color 0.12s; }
-        .btn-action:hover { background: rgba(37,99,235,0.1) !important; color: #60a5fa !important; border-color: rgba(37,99,235,0.3) !important; }
-
-        /* Header link */
-        .header-link { transition: background 0.12s, color 0.12s, border-color 0.12s; }
-        .header-link:hover { background: #1e293b !important; color: #f1f5f9 !important; border-color: #334155 !important; }
 
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #1f1f2e; border-radius: 4px; }
+
+        @keyframes fadeInLine {
+          from { opacity: 0; transform: translateX(-5px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        button { font-family: 'Inter', sans-serif; cursor: pointer; }
+        textarea { font-family: 'JetBrains Mono', monospace !important; }
+
+        /* Boot */
+        .boot-line { opacity: 0; animation: fadeInLine 0.4s ease both; }
+        .l1 { animation-delay: 0s; }
+        .l2 { animation-delay: 0.8s; }
+        .l3 { animation-delay: 1.6s; }
+        .l4 { animation-delay: 2.4s; }
+
+        /* Nav */
+        .nav-item { transition: color 0.15s, background 0.15s; }
+        .nav-item:hover { color: #64748b !important; }
+
+        /* Tabs */
+        .tab-btn { transition: color 0.15s, border-color 0.15s; }
+        .tab-btn:hover { color: #94a3b8 !important; }
+
+        /* Panel */
+        .panel {
+          transition: border-color 0.15s;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .panel:hover { border-color: #2a2a3e !important; }
+
+        /* Stat card */
+        .stat-card { transition: border-color 0.15s; }
+        .stat-card:hover { border-color: #2a2a3e !important; }
+
+        /* Generate button */
+        .btn-generate { transition: background 0.15s, color 0.15s; }
+        .btn-generate.active:hover { background: #1e40af !important; }
+
+        /* Load example */
+        .btn-load { transition: color 0.15s; }
+        .btn-load:hover { color: #60a5fa !important; }
+
+        /* GitHub link */
+        .gh-link { transition: color 0.15s; }
+        .gh-link:hover { color: #f1f5f9 !important; }
+
+        /* Copy button */
+        .btn-copy { transition: background 0.15s, color 0.15s, border-color 0.15s; }
+        .btn-copy:hover {
+          background: rgba(59,130,246,0.12) !important;
+          border-color: rgba(59,130,246,0.4) !important;
+          color: #60a5fa !important;
+        }
+
+        /* Download button */
+        .btn-dl { transition: border-color 0.15s, color 0.15s; }
+        .btn-dl:hover { border-color: #2a2a3e !important; color: #94a3b8 !important; }
+
+        /* Textarea placeholder */
+        textarea::placeholder { color: #1a1a28; }
       `}</style>
 
       {/* ── BOOT SCREEN ── */}
@@ -163,72 +167,74 @@ export default function App() {
           pointerEvents: bootDone ? "none" : "all",
         }}
       >
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, lineHeight: 2.2 }}>
-          <div className="boot-line boot-line-1" style={{ color: "#6b7280" }}>$ initializing pipeline engine...</div>
-          <div className="boot-line boot-line-2" style={{ color: "#6b7280" }}>$ loading column type detector...</div>
-          <div className="boot-line boot-line-3" style={{ color: "#6b7280" }}>$ connecting to claude-sonnet-4...</div>
-          <div className="boot-line boot-line-4" style={{ color: "#4ade80" }}>$ ready.</div>
+        <div style={{
+          fontFamily: "'Space Mono', monospace",
+          fontSize: 13,
+          lineHeight: 2.4,
+        }}>
+          <div className="boot-line l1" style={{ color: "#4b5563" }}>$ initializing pipeline engine...</div>
+          <div className="boot-line l2" style={{ color: "#4b5563" }}>$ loading column type detector...</div>
+          <div className="boot-line l3" style={{ color: "#4b5563" }}>$ connecting to claude-sonnet-4...</div>
+          <div className="boot-line l4" style={{ color: "#4ade80" }}>$ ready.</div>
         </div>
       </div>
 
       {/* ── MAIN APP ── */}
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          background: "#0f1117",
-          color: "#f1f5f9",
-          transition: "opacity 0.6s ease",
-          opacity: bootDone ? 1 : 0,
-        }}
-      >
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "#0a0a0f",
+        transition: "opacity 0.6s ease",
+        opacity: bootDone ? 1 : 0,
+      }}>
+
         {/* HEADER */}
         <header style={{
           height: 52,
-          borderBottom: "1px solid #1e293b",
+          borderBottom: "1px solid #1f1f2e",
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 20px",
-          background: "#0f1117",
+          padding: "0 24px",
+          background: "#0a0a0f",
           position: "sticky", top: 0, zIndex: 40,
           flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* Logo mark: dark blue square, 2×2 white dot grid */}
             <div style={{
-              width: 26, height: 26, borderRadius: 6,
-              background: "#2563eb",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 28, height: 28, borderRadius: 6,
+              background: "#1e3a8a",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 4,
+              padding: 7,
               flexShrink: 0,
             }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="1" y="1" width="4" height="3" rx="0.8" fill="white" opacity="0.9" />
-                <rect x="1" y="6" width="4" height="3" rx="0.8" fill="white" opacity="0.5" />
-                <rect x="7" y="1" width="6" height="1.5" rx="0.6" fill="white" opacity="0.8" />
-                <rect x="7" y="4" width="4" height="1.5" rx="0.6" fill="white" opacity="0.5" />
-                <rect x="7" y="7" width="5" height="1.5" rx="0.6" fill="white" opacity="0.6" />
-                <rect x="7" y="10" width="3" height="1.5" rx="0.6" fill="white" opacity="0.35" />
-              </svg>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.85)",
+                }} />
+              ))}
             </div>
-            <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: "-0.2px", color: "#f1f5f9" }}>
+            <span style={{
+              fontWeight: 600, fontSize: 14,
+              letterSpacing: "-0.2px", color: "#f1f5f9",
+            }}>
               PipelineAI
             </span>
           </div>
+
           <a
             href="https://github.com/MubarakAliPiracha/pipeline-ai"
             target="_blank" rel="noreferrer"
-            className="header-link"
+            className="gh-link"
             style={{
-              display: "flex", alignItems: "center", gap: 6,
-              fontSize: 12, fontWeight: 500, color: "#475569",
+              fontSize: 13, fontWeight: 500,
+              color: "#4b5563",
               textDecoration: "none",
-              padding: "5px 12px",
-              border: "1px solid #1e293b",
-              borderRadius: 6,
             }}
           >
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor">
-              <path fillRule="evenodd" clipRule="evenodd" d="M6.5.5C3.19.5.5 3.19.5 6.5c0 2.65 1.72 4.9 4.1 5.7.3.06.41-.13.41-.29v-1c-1.67.36-2.02-.8-2.02-.8-.27-.69-.67-.87-.67-.87-.55-.37.04-.36.04-.36.6.04.92.62.92.62.54.92 1.41.65 1.76.5.05-.39.21-.65.38-.8-1.34-.15-2.75-.67-2.75-2.97 0-.65.23-1.19.61-1.61-.06-.15-.27-.76.06-1.59 0 0 .5-.16 1.65.62.48-.13.99-.2 1.5-.2.51 0 1.02.07 1.5.2 1.15-.78 1.65-.62 1.65-.62.33.83.12 1.44.06 1.59.38.42.61.96.61 1.61 0 2.31-1.41 2.82-2.75 2.97.22.19.41.55.41 1.11v1.64c0 .17.11.36.41.3C11.28 11.4 12.5 9.15 12.5 6.5 12.5 3.19 9.81.5 6.5.5z" />
-            </svg>
             GitHub
           </a>
         </header>
@@ -237,81 +243,86 @@ export default function App() {
 
           {/* SIDEBAR */}
           <aside style={{
-            width: 210,
-            borderRight: "1px solid #1e293b",
-            background: "#0c0f1a",
+            width: 200,
+            borderRight: "1px solid #1f1f2e",
+            background: "#0d0d14",
             display: "flex", flexDirection: "column",
             flexShrink: 0,
             overflow: "auto",
           }}>
-            <nav style={{ flex: 1, padding: "14px 0" }}>
-              {[
-                { section: "Pipeline", items: ["Generator", "History"] },
-                { section: "Tools",    items: ["Schema Detect", "Data Preview", "Type Validator"] },
-              ].map(({ section, items }) => (
-                <div key={section} style={{ marginBottom: 6 }}>
-                  <div style={{
-                    padding: "6px 16px 4px",
-                    fontSize: 9, fontWeight: 600, letterSpacing: "0.14em",
-                    textTransform: "uppercase", color: "#1e293b",
-                  }}>
-                    {section}
+            <nav style={{ flex: 1, padding: "16px 0 0" }}>
+              {/* Section label */}
+              <div style={{
+                padding: "0 16px 8px",
+                fontSize: 10, fontWeight: 600,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "#1f2937",
+              }}>
+                Workspace
+              </div>
+
+              {["Generator", "History", "Schema Detect", "Data Preview"].map((item) => {
+                const active = item === "Generator";
+                return (
+                  <div
+                    key={item}
+                    className="nav-item"
+                    style={{
+                      padding: "8px 16px",
+                      borderLeft: `2px solid ${active ? "#3b82f6" : "transparent"}`,
+                      background: active ? "#13131e" : "transparent",
+                      color: active ? "#f1f5f9" : "#2d3748",
+                      fontSize: 13,
+                      fontWeight: active ? 500 : 400,
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    {item}
                   </div>
-                  {items.map((item) => {
-                    const active = item === "Generator";
-                    return (
-                      <div
-                        key={item}
-                        className="nav-item"
-                        style={{
-                          padding: "8px 16px",
-                          borderLeft: `2px solid ${active ? "#2563eb" : "transparent"}`,
-                          background: active ? "#131929" : "transparent",
-                          color: active ? "#f1f5f9" : "#334155",
-                          fontSize: 13,
-                          fontWeight: active ? 600 : 400,
-                          cursor: "pointer",
-                          userSelect: "none",
-                        }}
-                      >
-                        {item}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                );
+              })}
             </nav>
 
-            {/* Sidebar system info */}
-            <div style={{ padding: 12, borderTop: "1px solid #1e293b" }}>
+            {/* Runtime info */}
+            <div style={{ padding: "16px", borderTop: "1px solid #1f1f2e" }}>
               <div style={{
-                background: "#131929",
-                border: "1px solid #1e293b",
-                borderRadius: 8,
-                padding: "12px 14px",
+                fontSize: 10, fontWeight: 600,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "#1f2937",
+                marginBottom: 10,
               }}>
-                <div style={{
-                  fontSize: 9, fontWeight: 600, color: "#1e293b",
-                  textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10,
-                }}>
-                  System
-                </div>
-                {[["Engine", "Claude AI"], ["Model", "Sonnet 4"], ["Status", "Active"]].map(([k, v]) => (
-                  <div key={k} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    marginBottom: 7,
-                  }}>
-                    <span style={{ fontSize: 11, color: "#334155" }}>{k}</span>
-                    <span style={{ fontSize: 11, color: "#475569", fontFamily: "'DM Mono', monospace" }}>{v}</span>
-                  </div>
-                ))}
+                Runtime
               </div>
+              {[["Engine", "Claude AI"], ["Model", "Sonnet 4"]].map(([k, v]) => (
+                <div key={k} style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "center", marginBottom: 7,
+                }}>
+                  <span style={{
+                    fontSize: 11,
+                    color: "#374151",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>
+                    {k}
+                  </span>
+                  <span style={{
+                    fontSize: 11,
+                    color: "#4b5563",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>
+                    {v}
+                  </span>
+                </div>
+              ))}
             </div>
           </aside>
 
-          {/* MAIN */}
+          {/* MAIN CONTENT */}
           <main style={{
-            flex: 1, padding: 28,
+            flex: 1, padding: "28px 28px 28px",
             display: "flex", flexDirection: "column", gap: 20,
             overflow: "auto", minWidth: 0,
           }}>
@@ -320,89 +331,103 @@ export default function App() {
             <div>
               <h1 style={{
                 fontSize: 20, fontWeight: 700,
-                letterSpacing: "-0.4px", marginBottom: 6, color: "#f1f5f9",
+                letterSpacing: "-0.4px",
+                color: "#f1f5f9", marginBottom: 6,
               }}>
                 Data Pipeline Generator
               </h1>
-              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+              <p style={{ fontSize: 13, color: "#4b5563", lineHeight: 1.6 }}>
                 Paste messy CSV data. Claude AI detects every issue and generates a production-ready Python cleaning script.
               </p>
             </div>
 
-            {/* STATS */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-              {STATS.map(({ label, value, lit, amber, custom }) => (
+            {/* STATS ROW */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+              {[
+                { label: "Input Rows",    val: rowCount || "—",  color: statColor("rows",   rowCount > 0) },
+                { label: "Columns",       val: colCount || "—",  color: statColor("cols",   colCount > 0) },
+                { label: "Issues Found",  val: issues.length > 0 ? issues.length : "—",
+                                                                  color: statColor("issues", issues.length > 0) },
+                { label: "Pipeline State",val: statusLabel,      color: statColor("state",  true) },
+              ].map(({ label, val, color }) => (
                 <div key={label} className="stat-card" style={{
-                  background: "#131929",
-                  border: "1px solid #1e293b",
+                  background: "#16161f",
+                  border: "1px solid #1f1f2e",
                   borderRadius: 8,
-                  padding: "14px 18px",
+                  padding: "16px 18px",
                 }}>
                   <div style={{
-                    fontSize: 9, fontWeight: 600, color: "#334155",
-                    textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8,
+                    fontSize: 10, fontWeight: 600,
+                    color: "#2d3748",
+                    textTransform: "uppercase", letterSpacing: "0.1em",
+                    marginBottom: 8,
                   }}>
                     {label}
                   </div>
                   <div style={{
-                    fontSize: typeof value === "string" && value.length > 7 ? 14 : 22,
-                    fontWeight: 700, letterSpacing: "-0.5px",
-                    color: custom || (amber ? "#f59e0b" : lit ? "#f1f5f9" : "#1e293b"),
-                    fontFamily: "'DM Mono', monospace",
+                    fontSize: typeof val === "string" && val.length > 7 ? 14 : 22,
+                    fontWeight: 700, letterSpacing: "-0.4px",
+                    color,
+                    fontFamily: "'JetBrains Mono', monospace",
                   }}>
-                    {value}
+                    {val}
                   </div>
                 </div>
               ))}
             </div>
 
             {/* PANELS */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: 1, minHeight: 480 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, flex: 1, minHeight: 480 }}>
 
-              {/* INPUT PANEL */}
+              {/* ── LEFT: INPUT PANEL ── */}
               <div className="panel" style={{
-                background: "#131929",
-                border: "1px solid #1e293b",
-                borderRadius: 10,
+                background: "#111118",
+                border: "1px solid #1f1f2e",
+                borderRadius: 12,
                 display: "flex", flexDirection: "column",
                 overflow: "hidden",
               }}>
+                {/* Panel header */}
                 <div style={{
-                  padding: "12px 18px",
-                  borderBottom: "1px solid #1e293b",
+                  padding: "12px 16px",
+                  borderBottom: "1px solid #1f1f2e",
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   flexShrink: 0,
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
                     <span style={{
-                      fontSize: 11, fontWeight: 700, color: "#64748b",
-                      textTransform: "uppercase", letterSpacing: "0.1em",
+                      fontSize: 10, fontWeight: 600,
+                      color: "#2d3748",
+                      textTransform: "uppercase", letterSpacing: "0.12em",
                     }}>
                       CSV Input
                     </span>
                   </div>
                   <button
                     onClick={() => setCsvData(EXAMPLE_CSV)}
-                    className="btn-ghost"
+                    className="btn-load"
                     style={{
-                      fontSize: 12, fontWeight: 500, color: "#2563eb",
-                      background: "rgba(37,99,235,0.08)",
-                      border: "1px solid rgba(37,99,235,0.2)",
-                      padding: "5px 12px", borderRadius: 6,
+                      fontSize: 12, fontWeight: 500,
+                      color: "#3b82f6",
+                      background: "none", border: "none",
+                      padding: "2px 0",
                     }}
                   >
                     Load example
                   </button>
                 </div>
 
+                {/* Textarea */}
                 <textarea
                   style={{
                     flex: 1, background: "transparent",
                     border: "none", outline: "none",
-                    padding: "16px 18px",
-                    fontSize: 12, lineHeight: 1.8, color: "#64748b",
-                    resize: "none", width: "100%", minHeight: 260,
+                    padding: "16px",
+                    fontSize: 12, lineHeight: 1.85,
+                    color: "#4b5563",
+                    resize: "none", width: "100%",
+                    minHeight: 260,
                     caretColor: "#f1f5f9",
                   }}
                   placeholder={"Paste your CSV here...\n\nid,name,age,status\n1,John,,active\n2,,25,ACTIVE\n1,John,,active"}
@@ -410,52 +435,59 @@ export default function App() {
                   onChange={(e) => setCsvData(e.target.value)}
                 />
 
+                {/* Error */}
                 {error && (
                   <div style={{
-                    margin: "0 18px 14px",
+                    margin: "0 16px 12px",
                     padding: "10px 14px",
-                    background: "rgba(239,68,68,0.06)",
-                    border: "1px solid rgba(239,68,68,0.18)",
+                    background: "rgba(239,68,68,0.05)",
+                    border: "1px solid rgba(239,68,68,0.15)",
                     borderRadius: 6,
-                    fontSize: 12, color: "#f87171",
-                    fontFamily: "'DM Mono', monospace",
+                    fontSize: 11, color: "#f87171",
+                    fontFamily: "'JetBrains Mono', monospace",
                     lineHeight: 1.6, flexShrink: 0,
                   }}>
                     {error}
                   </div>
                 )}
 
+                {/* Footer meta */}
                 <div style={{
-                  padding: "8px 18px",
-                  borderTop: "1px solid #1e293b",
+                  padding: "8px 16px",
+                  borderTop: "1px solid #1f1f2e",
                   flexShrink: 0,
                 }}>
-                  <span style={{ fontSize: 11, color: "#1e293b", fontFamily: "'DM Mono', monospace" }}>
+                  <span style={{
+                    fontSize: 11, color: "#1f2937",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>
                     {csvData.trim()
                       ? `${rowCount} rows · ${colCount} cols · ${csvData.length} chars`
-                      : "Awaiting input"}
+                      : "awaiting input"}
                   </span>
                 </div>
 
-                <div style={{ padding: "10px 18px 18px", flexShrink: 0 }}>
+                {/* Generate button */}
+                <div style={{ padding: "10px 16px 18px", flexShrink: 0 }}>
                   <button
                     onClick={handleGenerate}
-                    disabled={loading || !csvData.trim()}
-                    className="btn-primary"
+                    disabled={!canGenerate}
+                    className={`btn-generate ${canGenerate ? "active" : ""}`}
                     style={{
-                      width: "100%", padding: "11px",
-                      background: loading || !csvData.trim() ? "#1a1f2e" : "#2563eb",
-                      border: `1px solid ${loading || !csvData.trim() ? "#1e293b" : "transparent"}`,
-                      borderRadius: 7,
-                      color: loading || !csvData.trim() ? "#334155" : "white",
-                      fontSize: 13, fontWeight: 600,
+                      width: "100%", padding: "13px",
+                      background: canGenerate ? "#1d4ed8" : "#111118",
+                      border: canGenerate ? "none" : "1px solid #1f1f2e",
+                      borderRadius: 8,
+                      color: canGenerate ? "#ffffff" : "#1f2937",
+                      fontSize: 14, fontWeight: 600,
                       display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                      letterSpacing: "-0.1px",
                     }}
                   >
                     {loading ? (
                       <>
                         <span style={{
-                          width: 13, height: 13,
+                          width: 14, height: 14,
                           border: "2px solid rgba(255,255,255,0.15)",
                           borderTopColor: "#93c5fd",
                           borderRadius: "50%",
@@ -469,17 +501,18 @@ export default function App() {
                 </div>
               </div>
 
-              {/* OUTPUT PANEL */}
+              {/* ── RIGHT: OUTPUT PANEL ── */}
               <div className="panel" style={{
-                background: "#131929",
-                border: "1px solid #1e293b",
-                borderRadius: 10,
+                background: "#111118",
+                border: "1px solid #1f1f2e",
+                borderRadius: 12,
                 display: "flex", flexDirection: "column",
                 overflow: "hidden",
               }}>
+                {/* Tab bar */}
                 <div style={{
                   display: "flex", alignItems: "center",
-                  borderBottom: "1px solid #1e293b",
+                  borderBottom: "1px solid #1f1f2e",
                   flexShrink: 0,
                 }}>
                   {TABS.map((tab) => (
@@ -488,11 +521,11 @@ export default function App() {
                       onClick={() => setActiveTab(tab.id)}
                       className="tab-btn"
                       style={{
-                        padding: "12px 16px",
-                        fontSize: 12, fontWeight: 600,
-                        color: activeTab === tab.id ? "#f1f5f9" : "#334155",
+                        padding: "11px 16px",
+                        fontSize: 12, fontWeight: 500,
+                        color: activeTab === tab.id ? "#f1f5f9" : "#2d3748",
                         background: "none", border: "none",
-                        borderBottom: `2px solid ${activeTab === tab.id ? "#2563eb" : "transparent"}`,
+                        borderBottom: `2px solid ${activeTab === tab.id ? "#3b82f6" : "transparent"}`,
                         display: "flex", alignItems: "center", gap: 6,
                         marginBottom: "-1px",
                       }}
@@ -500,10 +533,10 @@ export default function App() {
                       {tab.label}
                       {tab.badge != null && (
                         <span style={{
-                          fontSize: 10, fontWeight: 700,
+                          fontSize: 10, fontWeight: 600,
                           color: "#f59e0b",
-                          background: "rgba(245,158,11,0.12)",
-                          border: "1px solid rgba(245,158,11,0.2)",
+                          background: "rgba(245,158,11,0.1)",
+                          border: "1px solid rgba(245,158,11,0.18)",
                           padding: "1px 6px", borderRadius: 4,
                         }}>
                           {tab.badge}
@@ -511,78 +544,81 @@ export default function App() {
                       )}
                     </button>
                   ))}
-                  <div style={{ marginLeft: "auto", padding: "0 16px", display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ marginLeft: "auto", padding: "0 14px", display: "flex", alignItems: "center", gap: 5 }}>
                     <div style={{ width: 5, height: 5, borderRadius: "50%", background: statusColor }} />
-                    <span style={{ fontSize: 10, color: "#334155", fontFamily: "'DM Mono', monospace" }}>
+                    <span style={{
+                      fontSize: 10, color: "#374151",
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}>
                       {statusLabel}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ flex: 1, padding: "16px 18px", overflow: "auto", minHeight: 260 }}>
+                {/* Output content */}
+                <div style={{ flex: 1, padding: "16px", overflow: "auto", minHeight: 260 }}>
                   {!script ? (
                     <div style={{
-                      height: "100%", minHeight: 220,
+                      height: "100%", minHeight: 240,
                       display: "flex", flexDirection: "column",
-                      alignItems: "center", justifyContent: "center", gap: 12,
+                      alignItems: "center", justifyContent: "center", gap: 10,
                     }}>
-                      <svg width="44" height="38" viewBox="0 0 44 38" fill="none" opacity="0.1">
-                        <rect x="0" y="2" width="15" height="4" rx="2" fill="#3b82f6" />
-                        <rect x="0" y="10" width="10" height="4" rx="2" fill="#3b82f6" />
-                        <rect x="0" y="18" width="13" height="4" rx="2" fill="#3b82f6" />
-                        <rect x="0" y="26" width="8"  height="4" rx="2" fill="#3b82f6" />
-                        <path d="M24 19h5" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
-                        <circle cx="34" cy="19" r="8" stroke="#3b82f6" strokeWidth="2" />
-                        <path d="M31 19h6M34 16v6" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                      <svg width="40" height="34" viewBox="0 0 40 34" fill="none" opacity="0.07">
+                        <rect x="0" y="1"  width="14" height="4" rx="2" fill="#f1f5f9" />
+                        <rect x="0" y="9"  width="9"  height="4" rx="2" fill="#f1f5f9" />
+                        <rect x="0" y="17" width="12" height="4" rx="2" fill="#f1f5f9" />
+                        <rect x="0" y="25" width="7"  height="4" rx="2" fill="#f1f5f9" />
+                        <path d="M22 17h4" stroke="#f1f5f9" strokeWidth="1.5" strokeLinecap="round" />
+                        <circle cx="31" cy="17" r="7" stroke="#f1f5f9" strokeWidth="1.5" />
+                        <path d="M28.5 17h5M31 14.5v5" stroke="#f1f5f9" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
-                          No output yet
-                        </div>
-                        <div style={{ fontSize: 12, color: "#0f172a" }}>
-                          Paste CSV and generate your pipeline
-                        </div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#1f2937" }}>
+                        No output yet
+                      </div>
+                      <div style={{ fontSize: 12, color: "#111118" }}>
+                        Paste CSV data and generate your pipeline
                       </div>
                     </div>
                   ) : activeTab === "script" ? (
                     <pre style={{
-                      fontFamily: "'DM Mono', monospace",
-                      fontSize: 12, lineHeight: 1.8,
-                      color: "#4ade80",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 12, lineHeight: 1.85,
+                      color: "#34d399",
                       whiteSpace: "pre-wrap", wordBreak: "break-word",
                       margin: 0,
                     }}>
                       {script}
                     </pre>
                   ) : activeTab === "issues" ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {issues.length === 0 ? (
                         <div style={{
                           display: "flex", flexDirection: "column",
                           alignItems: "center", justifyContent: "center",
                           minHeight: 200, gap: 10,
                         }}>
-                          <svg width="34" height="34" viewBox="0 0 34 34" fill="none" opacity="0.2">
-                            <circle cx="17" cy="17" r="15" stroke="#10b981" strokeWidth="2" />
-                            <path d="M10 17l5 5L24 11" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity="0.18">
+                            <circle cx="16" cy="16" r="14" stroke="#34d399" strokeWidth="1.5" />
+                            <path d="M10 16l4.5 4.5L22 10" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
-                          <span style={{ fontSize: 12, color: "#1e293b" }}>No issues detected</span>
+                          <span style={{ fontSize: 12, color: "#1f2937" }}>No issues detected</span>
                         </div>
                       ) : issues.map((iss, i) => (
                         <div key={i} style={{
-                          padding: "10px 14px",
-                          background: "rgba(245,158,11,0.05)",
-                          border: "1px solid rgba(245,158,11,0.12)",
+                          padding: "9px 12px",
+                          background: "rgba(245,158,11,0.04)",
+                          border: "1px solid rgba(245,158,11,0.1)",
                           borderRadius: 6,
-                          display: "flex", alignItems: "flex-start", gap: 10,
+                          display: "flex", alignItems: "flex-start", gap: 9,
                         }}>
                           <div style={{
                             width: 4, height: 4, borderRadius: "50%",
-                            background: "#f59e0b", marginTop: 8, flexShrink: 0,
+                            background: "#f59e0b", marginTop: 7, flexShrink: 0,
                           }} />
                           <span style={{
-                            fontSize: 12, color: "#64748b",
-                            fontFamily: "'DM Mono', monospace", lineHeight: 1.7,
+                            fontSize: 11, color: "#4b5563",
+                            fontFamily: "'JetBrains Mono', monospace",
+                            lineHeight: 1.7,
                           }}>
                             {iss}
                           </span>
@@ -592,31 +628,32 @@ export default function App() {
                   ) : (
                     <div style={{
                       padding: "14px 16px",
-                      background: "rgba(37,99,235,0.04)",
-                      border: "1px solid rgba(37,99,235,0.1)",
+                      background: "rgba(59,130,246,0.03)",
+                      border: "1px solid rgba(59,130,246,0.08)",
                       borderRadius: 8,
-                      fontSize: 13, color: "#475569", lineHeight: 1.8,
+                      fontSize: 13, color: "#4b5563", lineHeight: 1.8,
                     }}>
                       {explanation || "No explanation available."}
                     </div>
                   )}
                 </div>
 
+                {/* Action bar */}
                 {script && (
                   <div style={{
-                    padding: "12px 18px",
-                    borderTop: "1px solid #1e293b",
+                    padding: "10px 16px",
+                    borderTop: "1px solid #1f1f2e",
                     display: "flex", gap: 8, flexShrink: 0,
                   }}>
                     <button
                       onClick={handleCopy}
-                      className="btn-action"
+                      className="btn-copy"
                       style={{
                         flex: 1, padding: "8px 12px",
                         fontSize: 12, fontWeight: 600,
-                        borderRadius: 6,
-                        border: "1px solid rgba(37,99,235,0.25)",
-                        background: "rgba(37,99,235,0.08)",
+                        borderRadius: 8,
+                        border: "1px solid rgba(59,130,246,0.2)",
+                        background: "rgba(59,130,246,0.07)",
                         color: "#3b82f6",
                       }}
                     >
@@ -624,14 +661,14 @@ export default function App() {
                     </button>
                     <button
                       onClick={handleDownload}
-                      className="btn-ghost"
+                      className="btn-dl"
                       style={{
                         flex: 1, padding: "8px 12px",
                         fontSize: 12, fontWeight: 600,
-                        borderRadius: 6,
-                        border: "1px solid #1e293b",
+                        borderRadius: 8,
+                        border: "1px solid #1f1f2e",
                         background: "transparent",
-                        color: "#475569",
+                        color: "#4b5563",
                       }}
                     >
                       Download .py
@@ -646,27 +683,35 @@ export default function App() {
 
         {/* STATUS BAR */}
         <footer style={{
-          height: 28,
-          background: "#090c14",
-          borderTop: "1px solid #1e293b",
+          height: 26,
+          background: "#08080d",
+          borderTop: "1px solid #1f1f2e",
           display: "flex", alignItems: "center",
-          padding: "0 20px", gap: 20,
+          padding: "0 24px", gap: 20,
           flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: statusColor }} />
-            <span style={{ fontSize: 10, color: "#334155", fontFamily: "'DM Mono', monospace" }}>
+            <span style={{
+              fontSize: 10, color: "#374151",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>
               {statusLabel}
             </span>
           </div>
-          <span style={{ fontSize: 10, color: "#1e293b", fontFamily: "'DM Mono', monospace" }}>
-            claude-haiku-4-5
+          <span style={{
+            fontSize: 10, color: "#1f2937",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            claude-sonnet-4
           </span>
-          <span style={{ fontSize: 10, color: "#1e293b", fontFamily: "'DM Mono', monospace" }}>
-            PipelineAI v1.0
-          </span>
-          <div style={{ marginLeft: "auto", fontSize: 10, color: "#1a2540", fontFamily: "'DM Mono', monospace" }}>
-            Mubarak Ali Piracha · UWaterloo
+          <div style={{ marginLeft: "auto" }}>
+            <span style={{
+              fontSize: 10, color: "#111118",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>
+              PipelineAI v1.0
+            </span>
           </div>
         </footer>
 
