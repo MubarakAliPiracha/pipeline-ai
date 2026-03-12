@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"/c/Users/Mubar/OneDrive - University of Waterloo/SIDE PROJECTS/Automatic pipeline builder/pipeline-ai/frontend\" && vercel --prod 2>&1)"
+    ]
+  }
+}
